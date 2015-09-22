@@ -48,21 +48,12 @@ namespace ConsoleApplication
             //UTXOS
             CoinPrism txRepo = new CoinPrism(true);
             var ccutoxs = txRepo.GetTransactions(fromAddress);
-            var utxos = txRepo.Get(fromAddress).Where(ux => ux.value > 10000).ToList();
+            //var utxos = txRepo.Get(fromAddress).Where(ux => ux.value > 10000).ToList();
 
-            //hard coded, worked
-            //transaction_hash
-            //var coin = new Coin(fromTxHash: new uint256("f131c91b3ce35f83258a3db54f5547daecc2a61142f598a39a8491ed2844eb28"),
-            //    fromOutputIndex: 0,
-            //    amount: Money.Satoshis(3000), //20000
-            //    scriptPubKey: new Script(Encoders.Hex.DecodeData("76a914b9ad2f3f358c24ec207abf72125790e67301284488ac")));
-
-            //var forfees = new Coin(fromTxHash: new uint256("a86a907f36071754ff4fdc4e27de4ec92272f239de5236af5f4806133ac66d0f"),
-            //    fromOutputIndex: 0,
-            //    amount: Money.Satoshis(97322000), //9957600
-            //    scriptPubKey: new Script(Encoders.Hex.DecodeData("76a914b9ad2f3f358c24ec207abf72125790e67301284488ac")));
+            var silverOutput = ccutoxs.FirstOrDefault(i => i.outputs.Any(o => o.asset_id == assetId)).outputs.FirstOrDefault(o => o.asset_id == assetId);
 
 
+            //Find the coin bob sent
             //Coin from Bob
             var coin = new Coin(fromTxHash: new uint256("dc19133d57bf9013d898bd89198069340d8ca99d71f0d5f6c6e142d724a9ba92"),
                 fromOutputIndex: 0,
@@ -96,9 +87,10 @@ namespace ConsoleApplication
             //var satoshi = Key.Parse(, Network.TestNet);
             string aliceWIF = "cPKW4EsFiPeczwHeSCgo4GTzm4T291Xb6sLGi1HoroXkiqGcGgsH";
             var satoshi = Key.Parse(aliceWIF, Network.TestNet);
-            ;
+            //;
 
 
+            //FROM NIC
             var bobKey = new BitcoinSecret("cMdLBsUCQ92VSRmqfEL4TgJCisWpjVBd8GsP2mAmUZxQ9bh5E7CN");
             var aliceKey = new BitcoinSecret("cPKW4EsFiPeczwHeSCgo4GTzm4T291Xb6sLGi1HoroXkiqGcGgsH");
             var txBuilder = new TransactionBuilder();

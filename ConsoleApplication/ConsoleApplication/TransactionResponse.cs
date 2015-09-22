@@ -10,6 +10,8 @@ namespace ConsoleApplication
     {
         public String hash { get; set; }
 
-        public Input[] inputs { get; set; }
+        public IEnumerable<Input> inputs { get; set; }
+
+        public IEnumerable<Output> outputs { get; set; }
     }
 }
