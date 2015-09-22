@@ -48,34 +48,40 @@ namespace ConsoleApplication
             //UTXOS
             CoinPrism txRepo = new CoinPrism(true);
             var ccutoxs = txRepo.GetTransactions(fromAddress);
-            //var utxos = txRepo.Get(fromAddress).Where(ux => ux.value > 10000).ToList();
 
-            var silverOutput = ccutoxs.FirstOrDefault(i => i.outputs.Any(o => o.asset_id == assetId)).outputs.FirstOrDefault(o => o.asset_id == assetId);
+            //Get a UTXO to fund.  Make sure its large enough, order by size.  Maybe order by date?
+            var fundingUTXO = txRepo.Get(fromAddress).Where(ux => ux.value > 10000).OrderByDescending(o => o.value).First();
 
+            //Find output which contains an incoming asset
+            var assetOutput = ccutoxs.FirstOrDefault(i => i.outputs.Any(o => o.asset_id == assetId)).outputs.FirstOrDefault(o => o.asset_id == assetId);
 
-            //Find the coin bob sent
-            //Coin from Bob
-            var coin = new Coin(fromTxHash: new uint256("dc19133d57bf9013d898bd89198069340d8ca99d71f0d5f6c6e142d724a9ba92"),
-                fromOutputIndex: 0,
-                amount: Money.Satoshis(600), //20000
+            if (1 == 2)
+            {
+                //Find the coin bob sent
+                //Coin from Bob
+                var coin_nic = new Coin(fromTxHash: new uint256("dc19133d57bf9013d898bd89198069340d8ca99d71f0d5f6c6e142d724a9ba92"),
+                    fromOutputIndex: 0,
+                    amount: Money.Satoshis(600), //default fee
+                    scriptPubKey: BitcoinAddress.Create("mxSimcis5yCPkBaFZ7ZrJ7fsPqLXatxTax").ScriptPubKey);
+
+                //Coin from Alice
+                var forfees_nic = new Coin(fromTxHash: new uint256("b4326462d6d3b522d7e2c06d9c904313f546395eb62661b06b57195691f5fe5f"),
+                    fromOutputIndex: 1,
+                    amount: Money.Coins(1m), //9957600
+                    scriptPubKey: BitcoinAddress.Create("muJjaSHk99LGMnaFduU9b3pWHdT1ZRPASF").ScriptPubKey);
+            }
+
+            //Senders address
+            var coin = new Coin(fromTxHash: new uint256(assetOutput.transaction_hash),
+                fromOutputIndex: Convert.ToUInt32(assetOutput.index),
+                amount: Money.Satoshis(600), //default fee
                 scriptPubKey: BitcoinAddress.Create("mxSimcis5yCPkBaFZ7ZrJ7fsPqLXatxTax").ScriptPubKey);
 
-            //Coin from Alice
-            var forfees = new Coin(fromTxHash: new uint256("b4326462d6d3b522d7e2c06d9c904313f546395eb62661b06b57195691f5fe5f"),
-                fromOutputIndex: 1,
-                amount: Money.Coins(1m), //9957600
-                scriptPubKey: BitcoinAddress.Create("muJjaSHk99LGMnaFduU9b3pWHdT1ZRPASF").ScriptPubKey);
 
-
-            //var coin = new Coin(fromTxHash: new uint256(utxos[0].transaction_hash),
-            //    fromOutputIndex: utxos[0].output_index,
-            //    amount: Money.Satoshis(60000), //20000
-            //    scriptPubKey: new Script(Encoders.Hex.DecodeData(utxos[0].script_hex)));
-
-            //var forfees = new Coin(fromTxHash: new uint256(utxos[1].transaction_hash),
-            //    fromOutputIndex: utxos[1].output_index,
-            //    amount: Money.Satoshis(60000), //20000
-            //    scriptPubKey: new Script(Encoders.Hex.DecodeData(utxos[1].script_hex)));
+            var forfees = new Coin(fromTxHash: new uint256(fundingUTXO.transaction_hash),
+                fromOutputIndex: fundingUTXO.output_index,
+                amount: Money.Satoshis(fundingUTXO.value), //20000
+                scriptPubKey: new Script(Encoders.Hex.DecodeData(fundingUTXO.script_hex)));
 
 
             BitcoinAssetId assetIdx = new BitcoinAssetId(assetId, Network.TestNet);
@@ -84,11 +90,10 @@ namespace ConsoleApplication
             ulong u = Convert.ToUInt64(amount);
             ColoredCoin colored = coin.ToColoredCoin(assetIdx, u);
 
+            //redundant
             //var satoshi = Key.Parse(, Network.TestNet);
-            string aliceWIF = "cPKW4EsFiPeczwHeSCgo4GTzm4T291Xb6sLGi1HoroXkiqGcGgsH";
-            var satoshi = Key.Parse(aliceWIF, Network.TestNet);
-            //;
-
+            //string aliceWIF = "cPKW4EsFiPeczwHeSCgo4GTzm4T291Xb6sLGi1HoroXkiqGcGgsH";
+            //var satoshi = Key.Parse(aliceWIF, Network.TestNet);
 
             //FROM NIC
             var bobKey = new BitcoinSecret("cMdLBsUCQ92VSRmqfEL4TgJCisWpjVBd8GsP2mAmUZxQ9bh5E7CN");
