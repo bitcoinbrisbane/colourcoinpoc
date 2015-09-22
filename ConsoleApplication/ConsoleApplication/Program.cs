@@ -31,7 +31,7 @@ namespace ConsoleApplication
 
         public static string Transfer(String fromAddress, Int64 amount, String toAddress, String assetId, String senderWifKey)
         {
-            
+
 
             NBitcoin.Network network = NBitcoin.Network.TestNet;
             NBitcoin.BitcoinSecret _key = NBitcoin.Network.TestNet.CreateBitcoinSecret(senderWifKey);
@@ -63,16 +63,17 @@ namespace ConsoleApplication
             //    scriptPubKey: new Script(Encoders.Hex.DecodeData("76a914b9ad2f3f358c24ec207abf72125790e67301284488ac")));
 
 
-
+            //Coin from Bob
             var coin = new Coin(fromTxHash: new uint256("dc19133d57bf9013d898bd89198069340d8ca99d71f0d5f6c6e142d724a9ba92"),
                 fromOutputIndex: 0,
-                amount: Money.Satoshis(199867600), //20000
-                scriptPubKey: new Script(Encoders.Hex.DecodeData("76a914b9ad2f3f358c24ec207abf72125790e67301284488ac")));
+                amount: Money.Satoshis(600), //20000
+                scriptPubKey: BitcoinAddress.Create("mxSimcis5yCPkBaFZ7ZrJ7fsPqLXatxTax").ScriptPubKey);
 
-            var forfees = new Coin(fromTxHash: new uint256("302290290074826991bb936c157ef1e5be2882e975154d31b985ae8a26dd3161"),
-                fromOutputIndex: 2,
-                amount: Money.Satoshis(20000), //9957600
-                scriptPubKey: new Script(Encoders.Hex.DecodeData("76a914b9ad2f3f358c24ec207abf72125790e67301284488ac")));
+            //Coin from Alice
+            var forfees = new Coin(fromTxHash: new uint256("b4326462d6d3b522d7e2c06d9c904313f546395eb62661b06b57195691f5fe5f"),
+                fromOutputIndex: 1,
+                amount: Money.Coins(1m), //9957600
+                scriptPubKey: BitcoinAddress.Create("muJjaSHk99LGMnaFduU9b3pWHdT1ZRPASF").ScriptPubKey);
 
 
             //var coin = new Coin(fromTxHash: new uint256(utxos[0].transaction_hash),
@@ -94,20 +95,22 @@ namespace ConsoleApplication
 
             //var satoshi = Key.Parse(, Network.TestNet);
             string aliceWIF = "cPKW4EsFiPeczwHeSCgo4GTzm4T291Xb6sLGi1HoroXkiqGcGgsH";
-            var satoshi = Key.Parse(aliceWIF, Network.TestNet); ;
+            var satoshi = Key.Parse(aliceWIF, Network.TestNet);
+            ;
 
+
+            var bobKey = new BitcoinSecret("cMdLBsUCQ92VSRmqfEL4TgJCisWpjVBd8GsP2mAmUZxQ9bh5E7CN");
+            var aliceKey = new BitcoinSecret("cPKW4EsFiPeczwHeSCgo4GTzm4T291Xb6sLGi1HoroXkiqGcGgsH");
             var txBuilder = new TransactionBuilder();
             var tx = txBuilder
-                .AddKeys(_key.PrivateKey)
-                //.AddCoins(forfees, colored)
-                .AddCoins(forfees)
-                .AddCoins(colored)
+                .AddKeys(bobKey,aliceKey)
+                .AddCoins(forfees, colored)
                 .SendAsset(alice, new AssetMoney(assetIdx, u))
                 //.SendAsset(satoshi.PubKey, new NBitcoin.OpenAsset.AssetMoney(assetIdx, u))
                 .SetChange(bitcoinFromAddress)
                 .SendFees(Money.Coins(0.001m))
                 .BuildTransaction(true);
-
+            var ok = txBuilder.Verify(tx);
             Submit(tx);
             return "ok";
         }
@@ -118,8 +121,8 @@ namespace ConsoleApplication
             //54.149.133.4:18333
             //52.69.206.155:18333
             //93.114.160.222:18333
-            string url = "93.114.160.222:18333"; 
-            using (var node = NBitcoin.Protocol.Node.Connect(NBitcoin.Network.TestNet, url))
+            string url = "93.114.160.222:18333";
+            using(var node = NBitcoin.Protocol.Node.Connect(NBitcoin.Network.TestNet, url))
             {
                 node.VersionHandshake();
                 //System.Threading.Thread.Sleep(1000);
