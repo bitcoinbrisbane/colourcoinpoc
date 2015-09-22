@@ -42,28 +42,11 @@ namespace ConsoleApplication
             //Get a UTXO to fund.  Make sure its large enough, order by size.  Maybe order by date?
             var fundingUTXO = txRepo.Get(fromAddress).Where(ux => ux.value > 10000).OrderByDescending(o => o.value).First();
 
+            //Note last emmitting tx = 55ef4ea701ee0df5aac55d56a068d2488780da827aca3c08615cfa92dbfc470e
             var ccutoxs = txRepo.GetTransactions(fromAddress);
 
             //Find output which contains an incoming asset
             var assetOutput = ccutoxs.FirstOrDefault(i => i.outputs.Any(o => o.asset_id == assetId)).outputs.FirstOrDefault(o => o.asset_id == assetId);
-
-            var coin_nic = new Coin(fromTxHash: new uint256("dc19133d57bf9013d898bd89198069340d8ca99d71f0d5f6c6e142d724a9ba92"),
-                fromOutputIndex: 0,
-                amount: Money.Satoshis(600), //default fee
-                scriptPubKey: BitcoinAddress.Create("mxSimcis5yCPkBaFZ7ZrJ7fsPqLXatxTax").ScriptPubKey);
-
-
-            if (1 == 2)
-            {
-                //Find the coin bob sent
-                //Coin from Bob
-
-                //Coin from Alice
-                var forfees_nic = new Coin(fromTxHash: new uint256("b4326462d6d3b522d7e2c06d9c904313f546395eb62661b06b57195691f5fe5f"),
-                    fromOutputIndex: 1,
-                    amount: Money.Coins(1m), //9957600
-                    scriptPubKey: BitcoinAddress.Create("muJjaSHk99LGMnaFduU9b3pWHdT1ZRPASF").ScriptPubKey);
-            }
 
             //Colour coin utxo that was sent
             var coin = new Coin(fromTxHash: new uint256(assetOutput.transaction_hash),
@@ -120,6 +103,8 @@ namespace ConsoleApplication
 
         public static void Submit(Transaction tx)
         {
+            IList<String> nodes = new List<String>(3);
+            nodes.Add("54.149.133.4:18333");
             //SOME TEST NET NODES
             //54.149.133.4:18333
             //52.69.206.155:18333
