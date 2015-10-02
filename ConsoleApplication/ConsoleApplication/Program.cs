@@ -25,14 +25,17 @@ namespace ConsoleApplication
             BitcoinSecret bob = new BitcoinSecret(BobWIFKey);
 
             const String SILVER = "oLcV5F6R59zbChoTBQ962Har24tAnhbtHo";
+            const String GOLD = "oWoYDF1Fxc7pSSoo97MMeH5NAmpqZhq5Ys";
 
             String result = Transfer(BobAddress, 1, AliceAddress, SILVER, BobWIFKey);
+            Console.WriteLine(result);
+            Console.ReadLine();
         }
 
         public static string Transfer(String fromAddress, Int64 amount, String toAddress, String assetId, String senderWifKey)
         {
             NBitcoin.Network network = NBitcoin.Network.TestNet;
-            NBitcoin.BitcoinSecret _key = NBitcoin.Network.TestNet.CreateBitcoinSecret(senderWifKey);
+            //NBitcoin.BitcoinSecret _key = NBitcoin.Network.TestNet.CreateBitcoinSecret(senderWifKey);
             NBitcoin.BitcoinAddress bitcoinToAddress = new BitcoinAddress(toAddress);
             NBitcoin.BitcoinAddress bitcoinFromAddress = new BitcoinAddress(fromAddress);
 
@@ -52,7 +55,8 @@ namespace ConsoleApplication
             var coin = new Coin(fromTxHash: new uint256(assetOutput.transaction_hash),
                 fromOutputIndex: Convert.ToUInt32(assetOutput.index),
                 amount: Money.Satoshis(600), //default fee
-                scriptPubKey: BitcoinAddress.Create("mxSimcis5yCPkBaFZ7ZrJ7fsPqLXatxTax").ScriptPubKey);
+                scriptPubKey: BitcoinAddress.Create(fromAddress).ScriptPubKey);
+                //scriptPubKey: BitcoinAddress.Create("mxSimcis5yCPkBaFZ7ZrJ7fsPqLXatxTax").ScriptPubKey);
 
             //Arbitary coin
             var forfees = new Coin(fromTxHash: new uint256(fundingUTXO.transaction_hash),
@@ -109,7 +113,7 @@ namespace ConsoleApplication
             //54.149.133.4:18333
             //52.69.206.155:18333
             //93.114.160.222:18333
-            string url = "93.114.160.222:18333";
+            string url = "54.149.133.4:18333"; // "93.114.160.222:18333";
             using(var node = NBitcoin.Protocol.Node.Connect(NBitcoin.Network.TestNet, url))
             {
                 node.VersionHandshake();
