@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -33,8 +34,12 @@ namespace ConsoleApplication
             const String USD = "oSANrbK92PePSWkmjP7FtVqLtHWPwFTKWc";
             const String AUD = "oM4tzMCMyxQ5zgtb3QtPkFaoBtQKBG2WdP";
 
-            //String result = Transfer(BobAddress, 3, AliceAddress, GOLD, BobWIFKey);
-            String result = Transfer(BobAddress, 10000, AliceAddress, AUD);
+            //String result = Transfer(BobAddress, 4, AliceAddress, GOLD); //confirmed
+            //String result = Transfer(AliceAddress, 10000, BobAddress, AUD); //confirmed
+            //String result = Transfer(BobAddress, 1000, AliceAddress, USD); //confirmed
+            //String result = Transfer(BobAddress, 15000, AliceAddress, USD); //confirmed
+            String result = Transfer(BobAddress, 7500, AliceAddress, AUD);
+            //String result = Transfer(AliceAddress, 15000, BobAddress, USD); //500
 
             Console.WriteLine(result);
             Console.ReadLine();
@@ -65,7 +70,10 @@ namespace ConsoleApplication
 
             //TODO:  CHANGE FOR DIVISIBILITY
             //Find output which contains an incoming asset
-            var assetOutput = ccutoxs.FirstOrDefault(i => i.outputs.Any(o => o.asset_id == assetId)).outputs.FirstOrDefault(o => o.asset_id == assetId && o.asset_quantity >= amount);
+            var assetOutput = ccutoxs.OrderByDescending(a => a.block_time)
+                .FirstOrDefault(i => i.outputs.Any(o => o.asset_id == assetId))
+                //.outputs.OrderByDescending(o => o.asset_quantity)
+                .outputs.FirstOrDefault(o => o.asset_id == assetId && o.asset_quantity >= amount);
 
             if (assetOutput == null)
             {
@@ -103,9 +111,9 @@ namespace ConsoleApplication
                 .BuildTransaction(true);
 
             var ok = txBuilder.Verify(tx);
-            Submit(tx);
+            var response = Submit(tx);
 
-            return tx.ToHex();
+            return response;
         }
 
 
@@ -414,27 +422,63 @@ namespace ConsoleApplication
 
         }
 
-        public static void Submit(Transaction tx)
+        public static String Submit(Transaction tx)
         {
-            IList<String> nodes = new List<String>(3);
-            nodes.Add("54.149.133.4:18333");
-            //SOME TEST NET NODES
-            //54.149.133.4:18333
-            //52.69.206.155:18333
-            //93.114.160.222:18333
-            string url = "93.114.160.222:18333";
-            //string url = "54.149.133.4:18333";
-            using(var node = NBitcoin.Protocol.Node.Connect(NBitcoin.Network.TestNet, url))
-            {
-                node.VersionHandshake();
-                //System.Threading.Thread.Sleep(1000);
 
-                NBitcoin.Transaction[] transactions = new Transaction[1];
-                transactions[0] = tx;
+            //Info.Blockchain.API.PushTx.PushTx bcInfo = new Info.Blockchain.API.PushTx.PushTx();
+            //http://btc.blockr.io/api/v1/tx/push
 
-                node.SendMessage(new NBitcoin.Protocol.InvPayload(transactions));
-                node.SendMessage(new NBitcoin.Protocol.TxPayload(tx));
-            }
+
+            var cli = new WebClient();
+            cli.Headers[HttpRequestHeader.ContentType] = "application/json";
+
+            Tx t = new Tx();
+            t.hex = tx.ToHex();
+
+            String json = Newtonsoft.Json.JsonConvert.SerializeObject(t);
+
+            String response = cli.UploadString("http://tbtc.blockr.io/api/v1/tx/push", json);
+
+
+            //IList<String> nodes = new List<String>(3);
+            //nodes.Add("54.149.133.4:18333");
+            ////SOME TEST NET NODES
+            ////54.149.133.4:18333
+            ////52.69.206.155:18333
+            ////93.114.160.222:18333
+            //string url = "93.114.160.222:18333"; //nic
+            ////url = "52.4.156.236:18333";
+            ////string url = "54.149.133.4:18333";
+
+
+            //using (var node = NBitcoin.Protocol.Node.ConnectToLocal(NBitcoin.Network.TestNet))
+            //{
+            //    node.VersionHandshake();
+
+            //    NBitcoin.Transaction[] transactions = new Transaction[1];
+            //    transactions[0] = tx;
+
+            //    node.SendMessage(new NBitcoin.Protocol.InvPayload(transactions));
+            //    node.SendMessage(new NBitcoin.Protocol.TxPayload(tx));
+            //}
+
+            //using(var node = NBitcoin.Protocol.Node.Connect(NBitcoin.Network.TestNet, url))
+            //{
+            //    node.VersionHandshake();
+
+            //    System.Threading.Thread.Sleep(100);
+
+            //    NBitcoin.Transaction[] transactions = new Transaction[1];
+            //    transactions[0] = tx;
+
+            //    node.SendMessage(new NBitcoin.Protocol.InvPayload(transactions));
+            //    node.SendMessage(new NBitcoin.Protocol.TxPayload(tx));
+            //}
+
+            var r = Newtonsoft.Json.JsonConvert.DeserializeObject<Response>(json);
+
+            return r.data;
+
         }
     }
 }

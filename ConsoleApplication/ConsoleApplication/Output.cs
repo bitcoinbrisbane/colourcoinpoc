@@ -19,5 +19,7 @@ namespace ConsoleApplication
         public String asset_id { get; set; }
 
         public Int64? asset_quantity { get; set; }
+
+        public List<String> addresses { get; set; }
     }
 }
