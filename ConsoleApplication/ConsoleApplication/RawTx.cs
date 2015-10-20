@@ -10,7 +10,7 @@ namespace ConsoleApplication
     /// <summary>
     /// Blockr
     /// </summary>
-    public class Tx
+    public class RawTx
     {
         public String hex { get; set; }
     }

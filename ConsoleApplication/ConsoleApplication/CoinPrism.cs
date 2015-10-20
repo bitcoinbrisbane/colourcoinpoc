@@ -32,7 +32,7 @@ namespace ConsoleApplication
         /// </summary>
         public String UserAddress { get; set; }
 
-        public List<UnspentTransactionResponse> Get(String fromAddress)
+        public List<UnspentTransactionResponse> GetUnspent(String fromAddress)
         {
             //api.coinprism.com/v1/addresses/address/unspents
             WebClient client = new WebClient();
