@@ -43,6 +43,7 @@ namespace ConsoleApplication
             const String USD = "oSANrbK92PePSWkmjP7FtVqLtHWPwFTKWc";
             const String AUD = "oM4tzMCMyxQ5zgtb3QtPkFaoBtQKBG2WdP";
 
+            //SIMPLE TRANSFERS
             //String result = Transfer(BobAddress, 4, AliceAddress, GOLD); //confirmed
             //String result = Transfer(AliceAddress, 10000, BobAddress, AUD); //confirmed
             //String result = Transfer(BobAddress, 1000, AliceAddress, USD); //confirmed
@@ -50,11 +51,19 @@ namespace ConsoleApplication
             //String result = Transfer(BobAddress, 100, AliceAddress, USD); //SENT
             //String result = Transfer(AliceAddress, 100, BobAddress, USD); //SENT
             //String result = Transfer(BobAddress, 100, AliceAddress, AUD); //SENT
-            String result = Transfer(BobAddress, 100, carol.GetAddress().ToString(), SILVER); //CONFIRMED
+
+            //new address
+            //String result = Transfer(BobAddress, 100, carol.GetAddress().ToString(), SILVER); //CONFIRMED
+            //String result = Transfer(BobAddress, 50000, carol.GetAddress().ToString(), USD); //CONFIRMED
+
+
+            String result = Trade(BobAddress, 1, GOLD, carol.GetAddress().ToString(), 5000, USD);
+
+            //BitcoinAssetId silverAsset = new BitcoinAssetId(SILVER, Network.TestNet);
+            //BitcoinAssetId usdAsset = new BitcoinAssetId(SILVER, Network.TestNet);
 
             Console.WriteLine(result);
             Console.ReadLine();
-               
         }
 
 
@@ -148,6 +157,101 @@ namespace ConsoleApplication
             return response;
         }
 
+
+        public static string Trade(String fromAddress, Int64 fromAmount, String fromAssetId, String toAddress, Int64 toAmount, String toAssetId)
+        {
+            NBitcoin.Network network = NBitcoin.Network.TestNet;
+
+            NBitcoin.BitcoinAddress bitcoinToAddress = new BitcoinAddress(toAddress, network);
+            NBitcoin.BitcoinAddress bitcoinFromAddress = new BitcoinAddress(fromAddress, network);
+
+            //UTXOS
+            CoinPrism txRepo = new CoinPrism(true);
+
+            //Get a UTXO to fund.  Make sure its large enough, order by size.  Maybe order by date?
+            var fundingUTXO = txRepo.GetUnspent(fromAddress).Where(ux => ux.value > 10000).OrderByDescending(o => o.value).First();
+
+            if (fundingUTXO == null)
+            {
+                throw new ArgumentNullException("Need more btc");
+            }
+
+            //Find unspent utxos with assets
+            var assetFromFundingUtxos = txRepo.GetUnspent(fromAddress).Where(ux => ux.asset_id == fromAssetId).ToList();
+            var assetToFundingUtxos = txRepo.GetUnspent(toAddress).Where(ux => ux.asset_id == toAssetId).ToList();
+
+            //Note last emmitting tx = 55ef4ea701ee0df5aac55d56a068d2488780da827aca3c08615cfa92dbfc470e
+            var fromCCutoxs = txRepo.GetTransactions(fromAddress);
+            var toCCutoxs = txRepo.GetTransactions(toAddress);
+
+            ////Find new tx first (DEBUG ONLY)
+            //var allOutputsForAsset = fromCCutoxs.OrderBy(a => a.block_time)
+            //    .Where(i => i.outputs.Any(o => o.asset_id == fromAssetId)) // && i.outputs.Any(oo => oo.addresses.Contains(fromAddress)))
+            //    //.outputs.OrderByDescending(o => o.asset_quantity)
+            //    //.Where(o => o.asset_id == assetId && o.asset_quantity >= amount && o.addresses.Contains(fromAddress));
+            //    .ToList();
+
+
+            ////TODO:  CHANGE FOR DIVISIBILITY
+            ////Find output which contains an incoming asset
+            //var fromAssetOutput = fromCCutoxs.OrderByDescending(a => a.block_time)
+            //    .FirstOrDefault(i => i.outputs.Any(o => o.asset_id == fromAssetId)) // && i.outputs.Any(oo => oo.addresses.Contains(fromAddress)))
+            //    //.outputs.OrderByDescending(o => o.asset_quantity)
+            //    //.outputs.FirstOrDefault(o => o.asset_id == assetId && o.asset_quantity >= amount && o.addresses.Contains(fromAddress));
+            //    .outputs.FirstOrDefault(o => o.asset_id == fromAssetId && o.asset_quantity >= fromAmount);
+
+
+
+            //FROM
+            //todo, could be many
+            var fromAssetOutput = assetFromFundingUtxos.SingleOrDefault(u => u.asset_quantity >= fromAmount);
+
+            if (fromAssetOutput == null)
+            {
+                throw new ArgumentNullException("Not enough assets");
+            }
+
+            //TODO:  NEED MULTIPLE COINS
+            //DO THE FROM
+            ////Colour coin utxo that was sent
+            var fromCoin = new Coin(fromTxHash: new uint256(fromAssetOutput.transaction_hash),
+                //fromOutputIndex: Convert.ToUInt32(fromAssetOutput.index),
+                fromOutputIndex: Convert.ToUInt32(fromAssetOutput.output_index),
+                amount: Money.Satoshis(fromAssetOutput.value), //default fee
+                scriptPubKey: bitcoinFromAddress.ScriptPubKey);
+
+            BitcoinAssetId fromAssetIdx = new BitcoinAssetId(fromAssetId, Network.TestNet);
+            ColoredCoin fromColored = fromCoin.ToColoredCoin(fromAssetIdx, Convert.ToUInt64(fromAssetOutput.asset_quantity));
+
+
+
+
+
+
+            //Arbitary coin
+            var forfees = new Coin(fromTxHash: new uint256(fundingUTXO.transaction_hash),
+                fromOutputIndex: fundingUTXO.output_index,
+                amount: Money.Satoshis(fundingUTXO.value), //20000
+                scriptPubKey: new Script(Encoders.Hex.DecodeData(fundingUTXO.script_hex)));
+
+            //FROM NIC
+            var key1 = new BitcoinSecret(BobWIFKey);
+            var key2 = new BitcoinSecret(CarolWIFKey);
+            var txBuilder = new TransactionBuilder();
+
+            var tx = txBuilder
+                .AddKeys(key1, key2)
+                .AddCoins(forfees, fromColored)
+                .SendAsset(bitcoinToAddress, new AssetMoney(fromAssetIdx, Convert.ToUInt64(fromAmount)))
+                .SetChange(bitcoinFromAddress)
+                .SendFees(Money.Coins(0.001m))
+                .BuildTransaction(true);
+
+            var ok = txBuilder.Verify(tx);
+            var response = Submit(tx);
+
+            return response;
+        }
 
 
         public static String FromNewAddressToAlice()
