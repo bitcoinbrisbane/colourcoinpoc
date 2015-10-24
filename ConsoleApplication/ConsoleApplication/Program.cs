@@ -17,6 +17,7 @@ namespace ConsoleApplication
         const String AliceWIFKey = "cPKW4EsFiPeczwHeSCgo4GTzm4T291Xb6sLGi1HoroXkiqGcGgsH";
 
         //n1aAcjdH4hbXXjeb2VWYCrKzLC6zEqvMnn
+        //bXBY3ruScYBVDPyox57ciriEZfoHADfXbzC
         const String CarolWIFKey = "93FYFkYojan95DwW8SVJKwyf23W3pAnY2ZQKj7sQweP6qjzZ7i3";
 
         static void Main(string[] args)
@@ -30,6 +31,8 @@ namespace ConsoleApplication
             BitcoinSecret alice = new BitcoinSecret(AliceWIFKey);
             BitcoinSecret bob = new BitcoinSecret(BobWIFKey);
             BitcoinSecret carol = new BitcoinSecret(CarolWIFKey);
+
+            Console.WriteLine(carol.GetAddress().ToColoredAddress().ToString());
 
             //Check
             Debug.Assert(BobAddress == bob.GetAddress().ToString());
@@ -170,8 +173,10 @@ namespace ConsoleApplication
 
             //Get a UTXO to fund.  Make sure its large enough, order by size.  Maybe order by date?
             var fundingUTXO = txRepo.GetUnspent(fromAddress).Where(ux => ux.value > 10000).OrderByDescending(o => o.value).First();
+            var fundingToUTXO = txRepo.GetUnspent(toAddress).Where(ux => ux.value > 10000).OrderByDescending(o => o.value).First();
 
-            if (fundingUTXO == null)
+
+            if (fundingUTXO == null | fundingToUTXO == null)
             {
                 throw new ArgumentNullException("Need more btc");
             }
@@ -181,8 +186,9 @@ namespace ConsoleApplication
             var assetToFundingUtxos = txRepo.GetUnspent(toAddress).Where(ux => ux.asset_id == toAssetId).ToList();
 
             //Note last emmitting tx = 55ef4ea701ee0df5aac55d56a068d2488780da827aca3c08615cfa92dbfc470e
-            var fromCCutoxs = txRepo.GetTransactions(fromAddress);
-            var toCCutoxs = txRepo.GetTransactions(toAddress);
+            //var fromCCutoxs = txRepo.GetTransactions(fromAddress);
+            //var toCCutoxs = txRepo.GetTransactions(toAddress);
+
 
             ////Find new tx first (DEBUG ONLY)
             //var allOutputsForAsset = fromCCutoxs.OrderBy(a => a.block_time)
@@ -205,8 +211,9 @@ namespace ConsoleApplication
             //FROM
             //todo, could be many
             var fromAssetOutput = assetFromFundingUtxos.SingleOrDefault(u => u.asset_quantity >= fromAmount);
+            var toAssetOutput = assetToFundingUtxos.SingleOrDefault(u => u.asset_quantity >= toAmount);
 
-            if (fromAssetOutput == null)
+            if (fromAssetOutput == null | toAssetOutput == null)
             {
                 throw new ArgumentNullException("Not enough assets");
             }
@@ -221,18 +228,32 @@ namespace ConsoleApplication
                 scriptPubKey: bitcoinFromAddress.ScriptPubKey);
 
             BitcoinAssetId fromAssetIdx = new BitcoinAssetId(fromAssetId, Network.TestNet);
+            
             ColoredCoin fromColored = fromCoin.ToColoredCoin(fromAssetIdx, Convert.ToUInt64(fromAssetOutput.asset_quantity));
 
 
+            ////TODO:  NEED MULTIPLE COINS
+            //var toCoin = new Coin(fromTxHash: new uint256(toAssetOutput.transaction_hash),
+            //    fromOutputIndex: Convert.ToUInt32(toAssetOutput.output_index),
+            //    amount: Money.Satoshis(toAssetOutput.value), //default fee
+            //    scriptPubKey: bitcoinToAddress.ScriptPubKey);
 
-
+            BitcoinAssetId toAssetIdx = new BitcoinAssetId(toAssetId, Network.TestNet);
+            ColoredCoin toColored = MakeColouredCoin(toAssetOutput, toAssetId, bitcoinToAddress.ScriptPubKey);
 
 
             //Arbitary coin
-            var forfees = new Coin(fromTxHash: new uint256(fundingUTXO.transaction_hash),
+            var fromFeeCoin = new Coin(fromTxHash: new uint256(fundingUTXO.transaction_hash),
                 fromOutputIndex: fundingUTXO.output_index,
                 amount: Money.Satoshis(fundingUTXO.value), //20000
                 scriptPubKey: new Script(Encoders.Hex.DecodeData(fundingUTXO.script_hex)));
+
+            var toFeeCoin = new Coin(fromTxHash: new uint256(fundingToUTXO.transaction_hash),
+                fromOutputIndex: fundingToUTXO.output_index,
+                amount: Money.Satoshis(fundingToUTXO.value), //20000
+                scriptPubKey: new Script(Encoders.Hex.DecodeData(fundingToUTXO.script_hex)));
+
+
 
             //FROM NIC
             var key1 = new BitcoinSecret(BobWIFKey);
@@ -241,9 +262,15 @@ namespace ConsoleApplication
 
             var tx = txBuilder
                 .AddKeys(key1, key2)
-                .AddCoins(forfees, fromColored)
+                .AddCoins(fromFeeCoin, fromColored)
                 .SendAsset(bitcoinToAddress, new AssetMoney(fromAssetIdx, Convert.ToUInt64(fromAmount)))
                 .SetChange(bitcoinFromAddress)
+                .SendFees(Money.Coins(0.001m))
+                .Then()
+                //.AddKeys(key1, key2)
+                .AddCoins(toFeeCoin, toColored)
+                .SendAsset(bitcoinFromAddress, new AssetMoney(toAssetIdx, Convert.ToUInt64(toAmount)))
+                .SetChange(bitcoinToAddress)
                 .SendFees(Money.Coins(0.001m))
                 .BuildTransaction(true);
 
@@ -253,6 +280,39 @@ namespace ConsoleApplication
             return response;
         }
 
+        public void GetUtxo(String assetAddress, String assetId, Int64 amout)
+        {
+            //UTXOS
+            CoinPrism txRepo = new CoinPrism(true);
+            var fundingUtxos = txRepo.GetUnspent(assetAddress).Where(ux => ux.asset_id == assetId).ToList();
+        }
+
+        public static ColoredCoin MakeColouredCoin(Output output, String assetId, Script scriptPubKey)
+        {
+            return MakeColouredCoin(output.output_hash, assetId, Convert.ToUInt32(output.index), output.value, scriptPubKey, Convert.ToUInt64(output.asset_quantity));
+        }
+
+        public static ColoredCoin MakeColouredCoin(UnspentTransactionResponse utxo, String assetId, Script scriptPubKey)
+        {
+            return MakeColouredCoin(assetId, utxo.transaction_hash, Convert.ToUInt32(utxo.output_index), utxo.value, scriptPubKey, Convert.ToUInt64(utxo.asset_quantity));
+        }
+
+        public static ColoredCoin MakeColouredCoin(String assetId, String txhash, UInt32 output_index, Int64 output_value, Script scriptPubKey, UInt64 asset_quantity)
+        {
+            //TODO:  NEED MULTIPLE COINS
+            //DO THE FROM
+            ////Colour coin utxo that was sent
+            var fromCoin = new Coin(fromTxHash: new uint256(txhash),
+                //fromOutputIndex: Convert.ToUInt32(fromAssetOutput.index),
+                fromOutputIndex: Convert.ToUInt32(output_index),
+                amount: Money.Satoshis(output_value), //default fee
+                scriptPubKey: scriptPubKey);
+
+            BitcoinAssetId bitcoinAssetId = new BitcoinAssetId(assetId, Network.TestNet);
+            ColoredCoin coin = fromCoin.ToColoredCoin(bitcoinAssetId, asset_quantity);
+
+            return coin;
+        }
 
         public static String FromNewAddressToAlice()
         {
@@ -537,7 +597,6 @@ namespace ConsoleApplication
             String hex = tx.ToHex();
             return hex;
         }
-
 
 
         private static ColoredCoin GetCoin(String assetId, UInt64 amount)
